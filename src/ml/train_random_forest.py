@@ -197,6 +197,74 @@ def main() -> None:
         .predict_proba(X_test)[:, 1]
     )
 
+        # ---------------------------------------------------------
+    # Threshold analysis
+    # ---------------------------------------------------------
+    thresholds = [
+        0.10,
+        0.20,
+        0.30,
+        0.40,
+        0.50,
+        0.60,
+        0.70,
+        0.80,
+        0.90,
+    ]
+
+    threshold_results = []
+
+    for threshold in thresholds:
+        threshold_predictions = (
+            probabilities >= threshold
+        ).astype(int)
+
+        tn, fp, fn, tp = confusion_matrix(
+            y_test,
+            threshold_predictions,
+        ).ravel()
+
+        precision = (
+            tp / (tp + fp)
+            if (tp + fp) > 0
+            else 0.0
+        )
+
+        recall = (
+            tp / (tp + fn)
+            if (tp + fn) > 0
+            else 0.0
+        )
+
+        threshold_results.append(
+            {
+                "threshold": threshold,
+                "precision": precision,
+                "recall": recall,
+                "false_positives": fp,
+                "false_negatives": fn,
+            }
+        )
+
+    threshold_df = pd.DataFrame(
+        threshold_results
+    )
+
+    print()
+    print("THRESHOLD ANALYSIS")
+    print("=" * 80)
+
+    print(
+        threshold_df.to_string(
+            index=False,
+            formatters={
+                "threshold": "{:.1f}".format,
+                "precision": "{:.4f}".format,
+                "recall": "{:.4f}".format,
+            },
+        )
+    )
+
     predictions = (
         probabilities >= 0.50
     ).astype(int)
