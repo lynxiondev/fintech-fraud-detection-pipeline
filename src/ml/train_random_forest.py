@@ -154,6 +154,44 @@ def main() -> None:
         y_train,
     )
 
+        # ---------------------------------------------------------
+    # Feature importance
+    # ---------------------------------------------------------
+    feature_names = (
+        pipeline
+        .named_steps["preprocessor"]
+        .get_feature_names_out()
+    )
+
+    importances = (
+        pipeline
+        .named_steps["model"]
+        .feature_importances_
+    )
+
+    feature_importance = (
+        pd.DataFrame(
+            {
+                "feature": feature_names,
+                "importance": importances,
+            }
+        )
+        .sort_values(
+            "importance",
+            ascending=False,
+        )
+    )
+
+    print()
+    print("TOP RANDOM FOREST FEATURES")
+    print("=" * 60)
+
+    print(
+        feature_importance
+        .head(20)
+        .to_string(index=False)
+    )
+
     probabilities = (
         pipeline
         .predict_proba(X_test)[:, 1]
