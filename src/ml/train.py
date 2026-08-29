@@ -18,6 +18,8 @@ from sklearn.metrics import (
     average_precision_score,
     classification_report,
     confusion_matrix,
+    precision_score,
+    recall_score,
     roc_auc_score,
 )
 from sklearn.pipeline import Pipeline
@@ -140,27 +142,88 @@ def main() -> None:
 
     probabilities = pipeline.predict_proba(X_test)[:, 1]
 
-    predictions = (probabilities >= 0.5).astype(int)
-
-    print("BASELINE RESULTS")
-    print("=" * 60)
-
-    print(
-        f"ROC-AUC: "
-        f"{roc_auc_score(y_test, probabilities):.4f}"
-    )
-
-    print(
-        f"PR-AUC:  "
-        f"{average_precision_score(y_test, probabilities):.4f}"
-    )
+        # ---------------------------------------------------------
+    # Threshold analysis
+    # ---------------------------------------------------------
 
     print()
-    print("CONFUSION MATRIX")
+    print("THRESHOLD ANALYSIS")
+    print("=" * 80)
+
+    thresholds = [
+        0.10,
+        0.20,
+        0.30,
+        0.40,
+        0.50,
+        0.60,
+        0.70,
+        0.80,
+        0.90,
+    ]
+
+    threshold_results = []
+
+    for threshold in thresholds:
+        predictions = (
+            probabilities >= threshold
+        ).astype(int)
+
+        tn, fp, fn, tp = confusion_matrix(
+            y_test,
+            predictions,
+        ).ravel()
+
+        precision = precision_score(
+            y_test,
+            predictions,
+            zero_division=0,
+        )
+
+        recall = recall_score(
+            y_test,
+            predictions,
+            zero_division=0,
+        )
+
+        threshold_results.append(
+            {
+                "threshold": threshold,
+                "precision": precision,
+                "recall": recall,
+                "false_positives": fp,
+                "false_negatives": fn,
+            }
+        )
+
+    threshold_df = pd.DataFrame(
+        threshold_results
+    )
+
+    print(
+        threshold_df.to_string(
+            index=False,
+            formatters={
+                "precision": "{:.4f}".format,
+                "recall": "{:.4f}".format,
+            },
+        )
+    )
+
+    # ---------------------------------------------------------
+    # Detailed results at default threshold
+    # ---------------------------------------------------------
+
+    predictions = (
+        probabilities >= 0.50
+    ).astype(int)
+
+    print()
+    print("CONFUSION MATRIX @ THRESHOLD 0.50")
     print(confusion_matrix(y_test, predictions))
 
     print()
-    print("CLASSIFICATION REPORT")
+    print("CLASSIFICATION REPORT @ THRESHOLD 0.50")
     print(
         classification_report(
             y_test,
