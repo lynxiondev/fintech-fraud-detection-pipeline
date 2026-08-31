@@ -80,6 +80,7 @@ def build_pipeline() -> Pipeline:
                 "encoder",
                 OneHotEncoder(
                     handle_unknown="ignore",
+                    sparse_output=False,
                 ),
             ),
         ]
@@ -154,7 +155,7 @@ def main() -> None:
         y_train,
     )
 
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
     # Feature importance
     # ---------------------------------------------------------
     feature_names = (
@@ -197,7 +198,48 @@ def main() -> None:
         .predict_proba(X_test)[:, 1]
     )
 
-        # ---------------------------------------------------------
+    # ---------------------------------------------------------
+    # Recall at fixed alert rate
+    # ---------------------------------------------------------
+    alert_rate = 0.10
+
+    number_of_alerts = int(
+        len(test) * alert_rate
+    )
+
+    top_indices = (
+        probabilities
+        .argsort()[-number_of_alerts:]
+    )
+
+    alerts = y_test.iloc[top_indices]
+
+    frauds_captured = alerts.sum()
+
+    recall_at_alert_rate = (
+        frauds_captured / y_test.sum()
+    )
+
+    print()
+    print("RECALL AT 10% ALERT RATE")
+    print("=" * 60)
+
+    print(
+        f"Transactions reviewed: "
+        f"{number_of_alerts:,}"
+    )
+
+    print(
+        f"Frauds captured: "
+        f"{frauds_captured} / {y_test.sum()}"
+    )
+
+    print(
+        f"Recall @ 10% alert rate: "
+        f"{recall_at_alert_rate:.2%}"
+    )
+
+    # ---------------------------------------------------------
     # Threshold analysis
     # ---------------------------------------------------------
     thresholds = [
@@ -303,4 +345,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main() 
