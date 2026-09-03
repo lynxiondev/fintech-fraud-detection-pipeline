@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 from sklearn.calibration import CalibratedClassifierCV, FrozenEstimator, calibration_curve
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
@@ -125,6 +126,20 @@ def main():
     calibrated_probabilities = calibration_model.predict_proba(X_test)[:, 1]
 
     # ---------------------------------------------------------
+    # 2.5 Compare top 10% ranking
+    # ---------------------------------------------------------
+
+    top_k = int(len(y_test) * 0.10)
+
+    uncalibrated_top = np.argsort(uncalibrated_probabilities)[-top_k:]
+    calibrated_top = np.argsort(calibrated_probabilities)[-top_k:]
+
+    overlap = len(
+        set(uncalibrated_top).intersection(set(calibrated_top))
+    )
+
+    
+    # ---------------------------------------------------------
     # 3. Evaluate both models
     # ---------------------------------------------------------
 
@@ -174,6 +189,13 @@ def main():
     print(f"ROC-AUC:     {calibrated_roc:.4f}")
     print(f"PR-AUC:      {calibrated_pr:.4f}")
     print(f"Brier Score: {calibrated_brier:.4f}")
+
+    print()
+    print("Top 10% ranking comparison")
+    print("--------------------------")
+    print(f"Transactions reviewed: {top_k}")
+    print(f"Ranking overlap:       {overlap}/{top_k}")
+    print(f"Overlap rate:          {overlap / top_k:.2%}")
 
 
 if __name__ == "__main__":
