@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: stg_transactions
+    description: "Staging model for fintech transactions."
+
+    columns:
+      - name: transaction_id
+        description: "Unique identifier for each transaction."
+        data_tests:
+          - not_null
+          - unique
+
+      - name: timestamp
+        description: "Transaction timestamp."
+        data_tests:
+          - not_null
+
+      - name: customer_id
+        description: "Customer identifier."
+        data_tests:
+          - not_null
+
+      - name: amount
+        description: "Transaction amount."
+        data_tests:
+          - not_null
+
+      - name: is_fraud
+        description: "Fraud label for training and evaluation."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false

@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: transaction_features
+    description: "Transaction-level features used for fraud detection."
+
+    columns:
+      - name: transaction_id
+        description: "Unique identifier for each transaction."
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_transaction_count
+        description: "Number of previous transactions for the customer."
+        data_tests:
+          - not_null
+
+      - name: transactions_last_1h
+        description: "Number of previous transactions within the last hour."
+        data_tests:
+          - not_null
+
+      - name: transactions_last_24h
+        description: "Number of previous transactions within the last 24 hours."
+        data_tests:
+          - not_null
+
+      - name: international_digital_wallet
+        description: "Interaction between international transactions and digital wallet payments."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+                quote: false 
