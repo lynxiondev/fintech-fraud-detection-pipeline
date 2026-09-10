@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-
+# dbt
+dbt_project/target/
+dbt_project/logs/
 # Virtual environments
 .venv/
 venv/
