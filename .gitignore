@@ -10,7 +10,8 @@ dbt_project/logs/
 .venv/
 venv/
 env/
-
+# Airflow virtual environment
+airflow_venv/
 # Jupyter
 .ipynb_checkpoints/
 
