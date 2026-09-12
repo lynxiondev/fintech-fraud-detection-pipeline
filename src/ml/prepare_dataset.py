@@ -22,16 +22,20 @@ TEST_PATH = Path("data/processed/test.csv")
 TARGET = "is_fraud"
 
 
-EXCLUDED_COLUMNS = [
-    "transaction_id",
-    "customer_id",
-    "timestamp",
-    TARGET,
-]
-
 
 def prepare_dataset(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Create chronological train/test datasets."""
+
+    if df.empty:
+        raise ValueError("Feature dataset is empty.")
+
+    required_columns = {TARGET, "timestamp"}
+    missing_columns = required_columns - set(df.columns)
+
+    if missing_columns:
+        raise ValueError(
+            f"Missing required columns: {sorted(missing_columns)}"
+        )
 
     df = df.copy()
 
@@ -40,6 +44,11 @@ def prepare_dataset(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = df.sort_values("timestamp").reset_index(drop=True)
 
     split_index = int(len(df) * 0.80)
+
+    if split_index == 0 or split_index == len(df):
+        raise ValueError(
+            "Dataset is too small to create non-empty train and test sets."
+        )
 
     train = df.iloc[:split_index].copy()
     test = df.iloc[split_index:].copy()

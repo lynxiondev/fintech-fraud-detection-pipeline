@@ -108,6 +108,17 @@ def build_pipeline() -> Pipeline:
         ]
     )
 
+def train_model(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+) -> Pipeline:
+    """Train the fraud detection model."""
+
+    pipeline = build_pipeline()
+
+    pipeline.fit(X_train, y_train)
+
+    return pipeline
 
 def main() -> None:
     """Train and evaluate the baseline model."""
@@ -133,12 +144,13 @@ def main() -> None:
     X_test = test[features]
     y_test = test[TARGET]
 
-    pipeline = build_pipeline()
-
-    print("Training baseline Logistic Regression...")
+    print("Training Logistic Regression...")
     print()
 
-    pipeline.fit(X_train, y_train)
+    pipeline = train_model(
+        X_train,
+        y_train,
+)
 
     probabilities = pipeline.predict_proba(X_test)[:, 1]
 
