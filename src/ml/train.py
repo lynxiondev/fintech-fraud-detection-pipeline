@@ -10,24 +10,18 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import joblib
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    average_precision_score,
-    classification_report,
-    confusion_matrix,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 TRAIN_PATH = Path("data/processed/train.csv")
 TEST_PATH = Path("data/processed/test.csv")
+MODEL_PATH = Path("models/fraud_model.joblib")
 
 TARGET = "is_fraud"
 
@@ -108,6 +102,33 @@ def build_pipeline() -> Pipeline:
         ]
     )
 
+def validate_training_data(
+    train: pd.DataFrame,
+    test: pd.DataFrame,
+) -> None:
+    """Validate datasets contain the required ML columns."""
+
+    required_columns = {
+        TARGET,
+        *NUMERIC_FEATURES,
+        *CATEGORICAL_FEATURES,
+    }
+
+    for name, df in [("train", train), ("test", test)]:
+        missing_columns = required_columns - set(df.columns)
+
+        if missing_columns:
+            raise ValueError(
+                f"{name} dataset is missing required columns: "
+                f"{sorted(missing_columns)}"
+            )
+
+        if df.empty:
+            raise ValueError(
+                f"{name} dataset is empty."
+            )
+
+
 def train_model(
     X_train: pd.DataFrame,
     y_train: pd.Series,
@@ -120,8 +141,24 @@ def train_model(
 
     return pipeline
 
+def save_model(
+    pipeline: Pipeline,
+    path: Path,
+) -> None:
+    """Save the trained model to disk."""
+
+    path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    joblib.dump(
+        pipeline,
+        path,
+    )
+
 def main() -> None:
-    """Train and evaluate the baseline model."""
+    """Train the fraud detection model."""
 
     if not TRAIN_PATH.exists():
         raise FileNotFoundError(
@@ -136,201 +173,31 @@ def main() -> None:
     train = pd.read_csv(TRAIN_PATH)
     test = pd.read_csv(TEST_PATH)
 
+    validate_training_data(
+        train,
+        test,
+    )
+
     features = NUMERIC_FEATURES + CATEGORICAL_FEATURES
 
     X_train = train[features]
     y_train = train[TARGET]
 
-    X_test = test[features]
-    y_test = test[TARGET]
-
     print("Training Logistic Regression...")
     print()
 
     pipeline = train_model(
-        X_train,
-        y_train,
-)
-
-    probabilities = pipeline.predict_proba(X_test)[:, 1]
-
-    # ---------------------------------------------------------
-    # Recall at fixed alert rate
-    # ---------------------------------------------------------
-    alert_rate = 0.10
-
-    number_of_alerts = int(
-        len(test) * alert_rate
+    X_train,
+    y_train,
     )
 
-    top_indices = (
-        probabilities
-        .argsort()[-number_of_alerts:]
+    save_model(
+    pipeline,
+    MODEL_PATH,
     )
 
-    alerts = y_test.iloc[top_indices]
-
-    frauds_captured = alerts.sum()
-
-    recall_at_alert_rate = (
-        frauds_captured / y_test.sum()
-    )
-
-    print()
-    print("RECALL AT 10% ALERT RATE")
-    print("=" * 60)
-
-    print(
-        f"Transactions reviewed: "
-        f"{number_of_alerts:,}"
-    )
-
-    print(
-        f"Frauds captured: "
-        f"{frauds_captured} / {y_test.sum()}"
-    )
-
-    print(
-        f"Recall @ 10% alert rate: "
-        f"{recall_at_alert_rate:.2%}"
-    )
-
-        # ---------------------------------------------------------
-    # Threshold analysis
-    # ---------------------------------------------------------
-
-    print()
-    print("THRESHOLD ANALYSIS")
-    print("=" * 80)
-
-    thresholds = [
-        0.10,
-        0.20,
-        0.30,
-        0.40,
-        0.50,
-        0.60,
-        0.70,
-        0.80,
-        0.90,
-    ]
-
-    threshold_results = []
-
-    for threshold in thresholds:
-        predictions = (
-            probabilities >= threshold
-        ).astype(int)
-
-        tn, fp, fn, tp = confusion_matrix(
-            y_test,
-            predictions,
-        ).ravel()
-
-        precision = precision_score(
-            y_test,
-            predictions,
-            zero_division=0,
-        )
-
-        recall = recall_score(
-            y_test,
-            predictions,
-            zero_division=0,
-        )
-
-        threshold_results.append(
-            {
-                "threshold": threshold,
-                "precision": precision,
-                "recall": recall,
-                "false_positives": fp,
-                "false_negatives": fn,
-            }
-        )
-
-    threshold_df = pd.DataFrame(
-        threshold_results
-    )
-
-    print(
-        threshold_df.to_string(
-            index=False,
-            formatters={
-                "precision": "{:.4f}".format,
-                "recall": "{:.4f}".format,
-            },
-        )
-    )
-
-    # ---------------------------------------------------------
-    # Detailed results at default threshold
-    # ---------------------------------------------------------
-
-    predictions = (
-        probabilities >= 0.50
-    ).astype(int)
-
-    print()
-    print("CONFUSION MATRIX @ THRESHOLD 0.50")
-    print(confusion_matrix(y_test, predictions))
-
-    print()
-    print("CLASSIFICATION REPORT @ THRESHOLD 0.50")
-    print(
-        classification_report(
-            y_test,
-            predictions,
-            digits=4,
-        )
-    )
-
-    feature_names = (
-        pipeline
-        .named_steps["preprocessor"]
-        .get_feature_names_out()
-    )
-
-    coefficients = (
-        pipeline
-        .named_steps["model"]
-        .coef_[0]
-    )
-
-    feature_importance = (
-        pd.DataFrame(
-            {
-                "feature": feature_names,
-                "coefficient": coefficients,
-            }
-        )
-        .sort_values(
-            "coefficient",
-            ascending=False,
-        )
-    )
-
-    print()
-    print("TOP FEATURES ASSOCIATED WITH FRAUD")
-    print("=" * 60)
-    print(
-        feature_importance
-        .head(15)
-        .to_string(index=False)
-    )
-
-    print()
-    print(
-        "TOP FEATURES ASSOCIATED WITH "
-        "LEGITIMATE TRANSACTIONS"
-    )
-    print("=" * 60)
-    print(
-        feature_importance
-        .tail(15)
-        .sort_values("coefficient")
-        .to_string(index=False)
-    )
+    print("Model training completed.")
+    print(f"Model saved to: {MODEL_PATH}")
 
 
 if __name__ == "__main__":
