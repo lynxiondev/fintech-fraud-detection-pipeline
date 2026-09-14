@@ -87,3 +87,59 @@ def test_threshold_must_be_valid(predictions):
             probabilities,
             threshold=1.5,
         )
+
+
+def test_evaluate_main_with_predictions_file(tmp_path, monkeypatch, capsys):
+    from src.ml import evaluate
+
+    predictions_path = tmp_path / "predictions.csv"
+
+    pd.DataFrame(
+        {
+            "is_fraud": [0, 1, 0, 1],
+            "fraud_probability": [0.10, 0.90, 0.20, 0.80],
+        }
+    ).to_csv(
+        predictions_path,
+        index=False,
+    )
+
+    monkeypatch.setattr(
+        evaluate,
+        "PREDICTIONS_PATH",
+        predictions_path,
+    )
+
+    evaluate.main()
+
+    output = capsys.readouterr().out
+
+    assert "Fraud model evaluation" in output
+    assert "ROC-AUC:" in output
+    assert "PR-AUC:" in output
+    assert "Operational evaluation @ 10% alert rate" in output
+    assert "Threshold evaluation @ 0.50" in output
+
+
+def test_evaluate_main_rejects_missing_columns(tmp_path, monkeypatch):
+    from src.ml import evaluate
+
+    predictions_path = tmp_path / "predictions.csv"
+
+    pd.DataFrame(
+        {
+            "is_fraud": [0, 1],
+        }
+    ).to_csv(
+        predictions_path,
+        index=False,
+    )
+
+    monkeypatch.setattr(
+        evaluate,
+        "PREDICTIONS_PATH",
+        predictions_path,
+    )
+
+    with pytest.raises(ValueError, match="missing required columns"):
+        evaluate.main()

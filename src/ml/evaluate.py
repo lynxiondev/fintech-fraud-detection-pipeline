@@ -4,6 +4,8 @@ Evaluate fraud detection model predictions.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from sklearn.metrics import (
@@ -11,6 +13,11 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
+)
+
+
+PREDICTIONS_PATH = Path(
+    "data/processed/predictions.csv"
 )
 
 
@@ -57,8 +64,13 @@ def evaluate_at_alert_rate(
 
     alerts = y_true.loc[top_indices]
 
-    frauds_captured = float(alerts.sum())
-    total_frauds = float(y_true.sum())
+    frauds_captured = float(
+        alerts.sum()
+    )
+
+    total_frauds = float(
+        y_true.sum()
+    )
 
     recall = (
         frauds_captured / total_frauds
@@ -110,3 +122,104 @@ def evaluate_at_threshold(
             zero_division=0,
         ),
     }
+
+
+def main() -> None:
+    """Evaluate the generated prediction dataset."""
+
+    if not PREDICTIONS_PATH.exists():
+        raise FileNotFoundError(
+            f"Predictions dataset not found: "
+            f"{PREDICTIONS_PATH}"
+        )
+
+    predictions = pd.read_csv(
+        PREDICTIONS_PATH
+    )
+
+    required_columns = {
+        "is_fraud",
+        "fraud_probability",
+    }
+
+    missing_columns = (
+        required_columns
+        - set(predictions.columns)
+    )
+
+    if missing_columns:
+        raise ValueError(
+            "Predictions dataset is missing required "
+            f"columns: {sorted(missing_columns)}"
+        )
+
+    y_true = predictions["is_fraud"]
+    probabilities = predictions[
+        "fraud_probability"
+    ]
+
+    ranking_metrics = evaluate_predictions(
+        y_true,
+        probabilities,
+    )
+
+    alert_10 = evaluate_at_alert_rate(
+        y_true,
+        probabilities,
+        alert_rate=0.10,
+    )
+
+    threshold_50 = evaluate_at_threshold(
+        y_true,
+        probabilities,
+        threshold=0.50,
+    )
+
+    print("Fraud model evaluation")
+    print()
+
+    print(
+        f"ROC-AUC: "
+        f"{ranking_metrics['roc_auc']:.4f}"
+    )
+
+    print(
+        f"PR-AUC:  "
+        f"{ranking_metrics['pr_auc']:.4f}"
+    )
+
+    print()
+
+    print("Operational evaluation @ 10% alert rate")
+    print(
+        f"Alerts:          "
+        f"{int(alert_10['alerts'])}"
+    )
+    print(
+        f"Frauds captured: "
+        f"{int(alert_10['frauds_captured'])}"
+    )
+    print(
+        f"Recall:          "
+        f"{alert_10['recall']:.4f}"
+    )
+    print(
+        f"Precision:       "
+        f"{alert_10['precision']:.4f}"
+    )
+
+    print()
+
+    print("Threshold evaluation @ 0.50")
+    print(
+        f"Recall:          "
+        f"{threshold_50['recall']:.4f}"
+    )
+    print(
+        f"Precision:       "
+        f"{threshold_50['precision']:.4f}"
+    )
+
+
+if __name__ == "__main__":
+    main() 

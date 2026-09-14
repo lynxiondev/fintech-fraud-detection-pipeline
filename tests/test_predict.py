@@ -150,3 +150,83 @@ def test_model_persistence_round_trip(tmp_path):
         loaded_probabilities,
     )
 
+def test_generate_predictions_returns_expected_columns():
+    from src.ml.predict import generate_predictions
+
+    test = pd.DataFrame(
+        {
+            "transaction_id": [1001, 1002],
+            "timestamp": [
+                "2026-01-01 10:00:00",
+                "2026-01-01 10:05:00",
+            ],
+            "is_fraud": [0, 1],
+            "feature": [1, 2],
+        }
+    )
+
+    class DummyPredictionModel:
+        def predict_proba(self, X):
+            return pd.DataFrame(
+                {
+                    "legitimate": [0.8, 0.3],
+                    "fraud": [0.2, 0.7],
+                }
+            ).to_numpy()
+
+    # Patch the feature lists used by generate_predictions.
+    import src.ml.predict as predict_module
+
+    predict_module.NUMERIC_FEATURES = ["feature"]
+    predict_module.CATEGORICAL_FEATURES = []
+
+    predictions = generate_predictions(
+        test,
+        DummyPredictionModel(),
+    )
+
+    assert predictions.columns.tolist() == [
+        "transaction_id",
+        "timestamp",
+        "is_fraud",
+        "fraud_probability",
+    ]
+
+
+def test_generate_predictions_preserves_transaction_data():
+    from src.ml.predict import generate_predictions
+
+    test = pd.DataFrame(
+        {
+            "transaction_id": [1001, 1002],
+            "timestamp": [
+                "2026-01-01 10:00:00",
+                "2026-01-01 10:05:00",
+            ],
+            "is_fraud": [0, 1],
+            "feature": [1, 2],
+        }
+    )
+
+    class DummyPredictionModel:
+        def predict_proba(self, X):
+            return pd.DataFrame(
+                {
+                    "legitimate": [0.8, 0.3],
+                    "fraud": [0.2, 0.7],
+                }
+            ).to_numpy()
+
+    import src.ml.predict as predict_module
+
+    predict_module.NUMERIC_FEATURES = ["feature"]
+    predict_module.CATEGORICAL_FEATURES = []
+
+    predictions = generate_predictions(
+        test,
+        DummyPredictionModel(),
+    )
+
+    assert predictions["transaction_id"].tolist() == [1001, 1002]
+    assert predictions["is_fraud"].tolist() == [0, 1]
+    assert predictions["fraud_probability"].tolist() == [0.2, 0.7]
