@@ -33,5 +33,9 @@ models:
   dbt_project:
     staging:
       +materialized: view
-    features:
+
+    intermediate:
       +materialized: table
+
+    marts:
+      +materialized: table 
